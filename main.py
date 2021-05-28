@@ -1,12 +1,15 @@
 import base64
 import hashlib
 import math
+
+import cryptography
 from cryptography.hazmat.primitives.asymmetric import rsa, dsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography import x509
 
 # creating two classes one for the tree and one for the leaves
@@ -72,6 +75,8 @@ class MerkleTree:
         self.changingArray = temp
 
     def get_root_val(self):
+        if(len(self.originalArray) == 0):
+            return ""
         if len(self.changingArray) == 1:
             return self.changingArray[0].hash
         else:
@@ -137,23 +142,30 @@ class MerkleTree:
     # input 6
     def signRoot(self, signKey):
         root = self.get_root_val()
-        tempKey = load_pem_private_key(signKey.encode(), password=None)
+        tempKey = load_pem_private_key(signKey.encode(), password=None, backend=default_backend())
         print("Temp: ", tempKey)
 
         signature = tempKey.sign(root.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
                                                    salt_length=padding.PSS.MAX_LENGTH),
                                  hashes.SHA256())
-        print(base64.b64decode(signature))
-        return signature
+        print("old signature: ", signature)
+        print((base64.b64encode(signature)).decode())
+        return (base64.b64encode(signature)).decode()
 
     # input 7
-    def verifySignature(self, verKey, signature, verText):
-        if verKey.verify(signature, verText, padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
+    def verifySignature(self, verKey, signa, verText):
+        newSignature = base64.decodebytes(signa.encode())
+        print("new signature:", newSignature)
+        newVerkey = load_pem_public_key(verKey.encode(), backend=default_backend())
+        try:
+            newVerkey.verify(newSignature, verText.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
                                                         salt_length=padding.PSS.MAX_LENGTH),
-                                    hashes.SHA256()):
+                                    hashes.SHA256())
             print(True)
             return True
-        return False
+        except cryptography.exceptions.InvalidSignature:
+            print(False)
+            return False
 
 
 
@@ -166,30 +178,51 @@ def myHash(value):
 
 # tests
 if __name__ == '__main__':
-    #creating tree and inserting leaves
     merkle = MerkleTree()
-    leaf1 = Merkle_Leafe("a", merkle.numOfLeaves)
-    merkle.insert_leaf(leaf1)
-    print("the original tree:")
-    merkle.printOriginalTree()
-    print("current root")
-    print(merkle.get_root_val())
+    flag = 0
+    while(flag == 0):
+        #parsing
+        userschoice = input()
+        parseInput = userschoice.split(" ")
 
-    leaf2 = Merkle_Leafe("b", merkle.numOfLeaves)
-    merkle.insert_leaf(leaf2)
-    print("the original tree:")
-    merkle.printOriginalTree()
-    merkle.changingArray = []
-    print("current root")
-    print(merkle.get_root_val())
+        #choices
+        if(parseInput[0] == "1"):
+            leaf = Merkle_Leafe(parseInput[1], merkle.numOfLeaves)
+            merkle.insert_leaf(leaf)
 
-    leaf3 = Merkle_Leafe("c", merkle.numOfLeaves)
-    merkle.insert_leaf(leaf3)
-    print("the original tree:")
-    merkle.printOriginalTree()
-    merkle.changingArray = []
-    print("current root")
-    print(merkle.get_root_val())
+        elif (parseInput[0] == "2"):
+            print(merkle.get_root_val())
+
+        elif (parseInput[0] == "3"):
+            merkle.changingArray = []
+            print(merkle.createProof(int(parseInput[1])))
+            flag = 1
+
+
+    #creating tree and inserting leaves
+    # merkle = MerkleTree()
+    # leaf1 = Merkle_Leafe("a", merkle.numOfLeaves)
+    # merkle.insert_leaf(leaf1)
+    # print("the original tree:")
+    # merkle.printOriginalTree()
+    # print("current root")
+    # print(merkle.get_root_val())
+
+    # leaf2 = Merkle_Leafe("b", merkle.numOfLeaves)
+    # merkle.insert_leaf(leaf2)
+    # print("the original tree:")
+    # merkle.printOriginalTree()
+    # merkle.changingArray = []
+    # print("current root")
+    # print(merkle.get_root_val())
+    #
+    # leaf3 = Merkle_Leafe("c", merkle.numOfLeaves)
+    # merkle.insert_leaf(leaf3)
+    # print("the original tree:")
+    # merkle.printOriginalTree()
+    # merkle.changingArray = []
+    # print("current root")
+    # print(merkle.get_root_val())
     #printing
     # print("number of leaves on the tree ", merkle.numOfLeaves)
     # print("the original tree:")
@@ -212,13 +245,13 @@ if __name__ == '__main__':
     # print("check proof:")
     # print(merkle.checkProof("a","d71dc32fa2cd95be60b32dbb3e63009fa8064407ee19f457c92a09a5ff841a8a 13e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d 12e7d2c03a9507ae265ecf5b5356885a53393a2029d241394997265a1a25aefc6"))
     # merkle.generateKeys()
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048, backend=default_backend())
-    pem1 = private_key.private_bytes(encoding=serialization.Encoding.PEM,
-                                     format=serialization.PrivateFormat.TraditionalOpenSSL,
-                                     encryption_algorithm=serialization.NoEncryption())
-    public_key = private_key.public_key()
-    pem2 = public_key.public_bytes(encoding=serialization.Encoding.PEM,
-                                   format=serialization.PublicFormat.SubjectPublicKeyInfo)
-
-    merkle.signRoot(pem1.decode())
-    # merkle.verifySignature(pem1, pem2, "Hello World")
+    # private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048, backend=default_backend())
+    # pem1 = private_key.private_bytes(encoding=serialization.Encoding.PEM,
+    #                                  format=serialization.PrivateFormat.TraditionalOpenSSL,
+    #                                  encryption_algorithm=serialization.NoEncryption())
+    # public_key = private_key.public_key()
+    # pem2 = public_key.public_bytes(encoding=serialization.Encoding.PEM,
+    #                                format=serialization.PublicFormat.SubjectPublicKeyInfo)
+    #
+    # signature = merkle.signRoot(pem1.decode())
+    # merkle.verifySignature(pem2.decode(), signature, "Hello World")
