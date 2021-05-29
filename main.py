@@ -132,39 +132,35 @@ class MerkleTree:
         pem2 = public_key.public_bytes(encoding=serialization.Encoding.PEM,
                                       format=serialization.PublicFormat.SubjectPublicKeyInfo).decode()
 
-        keys = [private_key, public_key]
+        # keys = [private_key, public_key]
+        print(pem1.encode())
         print("private: ")
         print(pem1)
         print("public: ")
         print(pem2)
-        return keys
+        # return keys
 
     # input 6
     def signRoot(self, signKey):
         root = self.get_root_val()
         tempKey = load_pem_private_key(signKey.encode(), password=None, backend=default_backend())
-        print("Temp: ", tempKey)
 
         signature = tempKey.sign(root.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
                                                    salt_length=padding.PSS.MAX_LENGTH),
                                  hashes.SHA256())
-        print("old signature: ", signature)
-        print((base64.b64encode(signature)).decode())
         return (base64.b64encode(signature)).decode()
 
     # input 7
     def verifySignature(self, verKey, signa, verText):
         newSignature = base64.decodebytes(signa.encode())
-        print("new signature:", newSignature)
-        newVerkey = load_pem_public_key(verKey.encode(), backend=default_backend())
+        newVerkey = load_pem_public_key(verKey.encode(),  backend=default_backend())
+        print(newVerkey)
         try:
             newVerkey.verify(newSignature, verText.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
                                                         salt_length=padding.PSS.MAX_LENGTH),
                                     hashes.SHA256())
-            print(True)
             return True
         except cryptography.exceptions.InvalidSignature:
-            print(False)
             return False
 
 
@@ -176,28 +172,67 @@ def myHash(value):
     hasher.update(value.encode())
     return hasher.hexdigest()
 
-# tests
+
 if __name__ == '__main__':
     merkle = MerkleTree()
     flag = 0
-    while(flag == 0):
+    while flag == 0:
         #parsing
+        # allInput = ""
         userschoice = input()
+
         parseInput = userschoice.split(" ")
 
         #choices
-        if(parseInput[0] == "1"):
+        if parseInput[0] == "1":
             leaf = Merkle_Leafe(parseInput[1], merkle.numOfLeaves)
             merkle.insert_leaf(leaf)
 
-        elif (parseInput[0] == "2"):
+        elif parseInput[0] == "2":
             print(merkle.get_root_val())
 
-        elif (parseInput[0] == "3"):
+        elif parseInput[0] == "3":
             merkle.changingArray = []
             print(merkle.createProof(int(parseInput[1])))
+        elif parseInput[0] == "4":
+            concat = ""
+            for i in range(len(parseInput)):
+                if i < 2:
+                    continue
+                else:
+                    concat += (parseInput[i] + " ")
+            print(merkle.checkProof(parseInput[1], concat))
+        elif parseInput[0] == "5":
+            merkle.generateKeys()
+        elif parseInput[0] == "6":
+            allInput = ""
+            while userschoice != "":
+                allInput += userschoice + "\n"
+                userschoice = input()
+            print(merkle.signRoot(allInput[2:]))
+        elif parseInput[0] == "7":
+            publicKey = ""
+            while userschoice != "":
+                publicKey += userschoice + "\n"
+                userschoice = input()
+            signature = input()
+            print(merkle.verifySignature(publicKey[2:], signature, "Hello World"))
             flag = 1
 
+# tests
+# if __name__ == '__main__':
+#     digest = 0
+#     hasher = hashlib.sha256()
+#     hasher.update(digest.encode())
+#     n = hasher.hexdigest().encode()
+#     print(n)
+#     n = int(n, 16)
+#     bStr = ''
+#     while n > 0:
+#         bStr = str(n % 2) + bStr
+#         n = n >> 1
+#     res = bStr
+#     print(res)
 
     #creating tree and inserting leaves
     # merkle = MerkleTree()
@@ -249,6 +284,7 @@ if __name__ == '__main__':
     # pem1 = private_key.private_bytes(encoding=serialization.Encoding.PEM,
     #                                  format=serialization.PrivateFormat.TraditionalOpenSSL,
     #                                  encryption_algorithm=serialization.NoEncryption())
+    # print(pem1.decode())
     # public_key = private_key.public_key()
     # pem2 = public_key.public_bytes(encoding=serialization.Encoding.PEM,
     #                                format=serialization.PublicFormat.SubjectPublicKeyInfo)
