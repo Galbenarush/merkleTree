@@ -219,6 +219,13 @@ class SparseMerkleTree:
         self.changingArray = temp.copy()
         self.defValue = myHash(self.defValue + self.defValue)
 
+    # input 8
+    def markLeaf(self, digest):
+        index = int(digest, 16)
+        leaf = SparseLeaf(index, "1")
+        self.indexArray.append(leaf)
+
+    # input 9
     def getRootVal(self):
         if len(self.indexArray) == 0:
             tempHash = "0"
@@ -232,50 +239,45 @@ class SparseMerkleTree:
                 self.createNextLevel()
             return self.changingArray[0].hash
 
-    def markLeaf(self, digest):
-        n = digest.encode()
-        n = int(n, 16)
-        bStr = ''
-        while n > 0:
-            bStr = str(n % 2) + bStr
-            n = n >> 1
-        leaf = SparseLeaf(int(bStr, 2), "1")
-        self.indexArray.append(leaf)
-
+    # input 10
     def createProof(self, digest):
         self.changingArray = self.indexArray.copy()
         self.defValue = "0"
         proof = ""
-        # bStr - binary, tempIndex - decimal
-        n = digest.encode()
-        n = int(n, 16)
-        bStr = ''
-        while n > 0:
-            bStr = str(n % 2) + bStr
-            n = n >> 1
-        tempIndex = int(bStr, 2)
+        if len(self.indexArray) == 0:
+            proof = self.getRootVal() + " " + self.getRootVal()
+            return proof
+        tempIndex = int(digest, 16)
         # create proof 255 times without the root
-        for i in range(255):
-            flag = False
+        for i in range(256):
+            print("level: ", i, "changing: ", self.changingArray[0].hash)
+            print("index: ", tempIndex, "self index: ", self.changingArray[0].index)
+            broExist = False
+            iExist = False
             if tempIndex % 2 == 0:
                 for y in self.changingArray:
                     if y.index == tempIndex + 1:
                         proof = proof + " " + y.hash
-                        flag = True
-                if not flag:
+                        broExist = True
+                    elif y.index == tempIndex:
+                        iExist = True
+                if (not broExist) and iExist:
                     proof = proof + " " + self.defValue
             elif tempIndex % 2 == 1:
                 for y in self.changingArray:
                     if y.index == tempIndex - 1:
                         proof = proof + " " + y.hash
-                        flag = True
-                if not flag:
+                        broExist = True
+                    elif y.index == tempIndex:
+                        iExist = True
+                if (not broExist) and iExist:
                     proof = proof + " " + self.defValue
             self.createNextLevel()
             tempIndex = math.floor(tempIndex / 2)
         proof = self.getRootVal() + " " + proof
         return proof
 
+    # input 11
     def checkProof(self, digest, num, proof):
         testProof = self.createProof(digest)
         return testProof == proof
@@ -289,6 +291,7 @@ def myHash(value):
 
 
 if __name__ == '__main__':
+    # print(myHash("0000000000000000000000000000000000000000000000000000000000000000"))
     merkle = MerkleTree()
     sparse = SparseMerkleTree()
     flag = 0
@@ -296,7 +299,6 @@ if __name__ == '__main__':
         # parsing
         # allInput = ""
         userschoice = input()
-
         parseInput = userschoice.split(" ")
 
         # choices
@@ -339,13 +341,13 @@ if __name__ == '__main__':
             signature = newInput[0]
             text = newInput[1]
             print(merkle.verifySignature(publicKey[2:], signature, text))
-        elif userschoice == "8":
+        elif parseInput[0] == "8":
             sparse.markLeaf(parseInput[1])
-        elif userschoice == "9":
+        elif parseInput[0] == "9":
             print(sparse.getRootVal())
-        elif userschoice == "10":
+        elif parseInput[0] == "10":
             print(sparse.createProof(parseInput[1]))
-        elif userschoice == "11":
+        elif parseInput[0] == "11":
             concat = ""
             for i in range(len(parseInput)):
                 if i < 3:
