@@ -1,16 +1,17 @@
+# Gal Ben Arush 208723791 Yoav Berger 313268393
+
 import base64
 import hashlib
 import math
 
 import cryptography
-from cryptography.hazmat.primitives.asymmetric import rsa, dsa
+from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
-from cryptography import x509
 
 
 # creating two classes one for the tree and one for the leaves
@@ -114,8 +115,8 @@ class MerkleTree:
         root = proofArr.pop(0)
         for h in proofArr:
             tempStr = h[1:]
-            tempHash = myHash(tempHash + tempStr)
-
+            if tempStr != "":
+                tempHash = myHash(tempHash + tempStr)
         if root == tempHash:
             return True
         else:
@@ -132,13 +133,11 @@ class MerkleTree:
         pem2 = public_key.public_bytes(encoding=serialization.Encoding.PEM,
                                        format=serialization.PublicFormat.SubjectPublicKeyInfo).decode()
 
-        # keys = [private_key, public_key]
-        print(pem1.encode())
-        print("private: ")
-        print(pem1)
-        print("public: ")
-        print(pem2)
-        # return keys
+        keys = [pem1, pem2]
+        # print(pem1.encode())
+        # print(pem1)
+        # print(pem2)
+        return keys
 
     # input 6
     def signRoot(self, signKey):
@@ -151,16 +150,27 @@ class MerkleTree:
         return (base64.b64encode(signature)).decode()
 
     # input 7
-    def verifySignature(self, verKey, signa, verText):
-        newSignature = base64.decodebytes(signa.encode())
-        newVerkey = load_pem_public_key(verKey.encode(), backend=default_backend())
-        print(newVerkey)
+    # def verifySignature(self, verKey, signature, verText):
+    #     newVerkey = load_pem_public_key(verKey.encode(), backend=default_backend())
+    #     newSignature = base64.decodebytes(signature.encode())
+    #     try:
+    #         newVerkey.verify(newSignature, verText.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
+    #                                                                      salt_length=padding.PSS.MAX_LENGTH),
+    #                          hashes.SHA256())
+    #         return True
+    #     except cryptography.exceptions.InvalidSignature:
+    #         return False
+    def verifySignature(self, publicKey, signature, text):
+        # print("public: ", publicKey)
+        # print("signature: ", signature)
+        # print("text: ", text)
+        publicKey = load_pem_public_key(publicKey.encode(), backend = default_backend())
         try:
-            newVerkey.verify(newSignature, verText.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
-                                                                         salt_length=padding.PSS.MAX_LENGTH),
+            publicKey.verify(base64.decodebytes(signature.encode()), text.encode(),
+                             padding.PSS(mgf = padding.MGF1(hashes.SHA256()), salt_length = padding.PSS.MAX_LENGTH),
                              hashes.SHA256())
             return True
-        except cryptography.exceptions.InvalidSignature:
+        except:
             return False
 
 class SparseLeaf:
@@ -168,11 +178,12 @@ class SparseLeaf:
         self.index = data
         self.hash = enteredHash
 
+
 class SparseMerkleTree:
     def __init__(self):
         self.indexArray = []
         self.changingArray = []
-        self.defValue = myHash("0")
+        self.defValue = "0"
 
     def printOriginalTree(self):
         for le in self.indexArray:
@@ -205,18 +216,18 @@ class SparseMerkleTree:
                     tempHash = myHash(self.defValue + x.hash)
             leafIndex = math.floor(x.index / 2)
             temp.append(SparseLeaf(leafIndex, tempHash))
-        self.changingArray = temp
+        self.changingArray = temp.copy()
         self.defValue = myHash(self.defValue + self.defValue)
 
     def getRootVal(self):
         if len(self.indexArray) == 0:
-            tempHash = myHash("0")
+            tempHash = "0"
             for i in range(256):
                 tempHash = myHash(tempHash + tempHash)
             return tempHash
         else:
-            self.changingArray = self.indexArray
-            self.defValue = myHash("0")
+            self.changingArray = self.indexArray.copy()
+            self.defValue = "0"
             for i in range(256):
                 self.createNextLevel()
             return self.changingArray[0].hash
@@ -228,13 +239,14 @@ class SparseMerkleTree:
         while n > 0:
             bStr = str(n % 2) + bStr
             n = n >> 1
-        leaf = SparseLeaf(int(bStr, 2), myHash("1"))
+        leaf = SparseLeaf(int(bStr, 2), "1")
         self.indexArray.append(leaf)
 
     def createProof(self, digest):
-        self.defValue = myHash("0")
+        self.changingArray = self.indexArray.copy()
+        self.defValue = "0"
         proof = ""
-        # from digest to binary
+        # bStr - binary, tempIndex - decimal
         n = digest.encode()
         n = int(n, 16)
         bStr = ''
@@ -242,7 +254,7 @@ class SparseMerkleTree:
             bStr = str(n % 2) + bStr
             n = n >> 1
         tempIndex = int(bStr, 2)
-        # create proof
+        # create proof 255 times without the root
         for i in range(255):
             flag = False
             if tempIndex % 2 == 0:
@@ -255,7 +267,7 @@ class SparseMerkleTree:
             elif tempIndex % 2 == 1:
                 for y in self.changingArray:
                     if y.index == tempIndex - 1:
-                        proof = proof + " " + tempHash
+                        proof = proof + " " + y.hash
                         flag = True
                 if not flag:
                     proof = proof + " " + self.defValue
@@ -269,59 +281,80 @@ class SparseMerkleTree:
         return testProof == proof
 
 
-
-
 # hash sha256 function
 def myHash(value):
     hasher = hashlib.sha256()
     hasher.update(value.encode())
     return hasher.hexdigest()
 
-# if __name__ == '__main__':
-#     merkle = MerkleTree()
-#     flag = 0
-#     while flag == 0:
-#         # parsing
-#         # allInput = ""
-#         userschoice = input()
-#
-#         parseInput = userschoice.split(" ")
-#
-#         # choices
-#         if parseInput[0] == "1":
-#             leaf = Merkle_Leafe(parseInput[1], merkle.numOfLeaves)
-#             merkle.insert_leaf(leaf)
-#
-#         elif parseInput[0] == "2":
-#             print(merkle.get_root_val())
-#
-#         elif parseInput[0] == "3":
-#             merkle.changingArray = []
-#             print(merkle.createProof(int(parseInput[1])))
-#         elif parseInput[0] == "4":
-#             concat = ""
-#             for i in range(len(parseInput)):
-#                 if i < 2:
-#                     continue
-#                 else:
-#                     concat += (parseInput[i] + " ")
-#             print(merkle.checkProof(parseInput[1], concat))
-#         elif parseInput[0] == "5":
-#             merkle.generateKeys()
-#         elif parseInput[0] == "6":
-#             allInput = ""
-#             while userschoice != "":
-#                 allInput += userschoice + "\n"
-#                 userschoice = input()
-#             print(merkle.signRoot(allInput[2:]))
-#         elif parseInput[0] == "7":
-#             publicKey = ""
-#             while userschoice != "":
-#                 publicKey += userschoice + "\n"
-#                 userschoice = input()
-#             signature = input()
-#             print(merkle.verifySignature(publicKey[2:], signature, "Hello World"))
-#             flag = 1
+
+if __name__ == '__main__':
+    merkle = MerkleTree()
+    sparse = SparseMerkleTree()
+    flag = 0
+    while flag == 0:
+        # parsing
+        # allInput = ""
+        userschoice = input()
+
+        parseInput = userschoice.split(" ")
+
+        # choices
+        if parseInput[0] == "1":
+            leaf = Merkle_Leafe(parseInput[1], merkle.numOfLeaves)
+            merkle.insert_leaf(leaf)
+
+        elif parseInput[0] == "2":
+            merkle.changingArray = []
+            print(merkle.get_root_val())
+
+        elif parseInput[0] == "3":
+            merkle.changingArray = []
+            print(merkle.createProof(int(parseInput[1])))
+        elif parseInput[0] == "4":
+            concat = ""
+            for i in range(len(parseInput)):
+                if i < 2:
+                    continue
+                else:
+                    concat += (parseInput[i] + " ")
+            print(merkle.checkProof(parseInput[1], concat))
+        elif parseInput[0] == "5":
+            keys = merkle.generateKeys()
+            print(keys[0])
+            print(keys[1])
+        elif parseInput[0] == "6":
+            allInput = ""
+            while userschoice != "":
+                allInput += userschoice + "\n"
+                userschoice = input()
+            print(merkle.signRoot(allInput[2:]))
+        elif parseInput[0] == "7":
+            publicKey = ""
+            while userschoice != "":
+                publicKey += userschoice + "\n"
+                userschoice = input()
+            newInput = input()
+            newInput = newInput.split(" ")
+            signature = newInput[0]
+            text = newInput[1]
+            print(merkle.verifySignature(publicKey[2:], signature, text))
+        elif userschoice == "8":
+            sparse.markLeaf(parseInput[1])
+        elif userschoice == "9":
+            print(sparse.getRootVal())
+        elif userschoice == "10":
+            print(sparse.createProof(parseInput[1]))
+        elif userschoice == "11":
+            concat = ""
+            for i in range(len(parseInput)):
+                if i < 3:
+                    continue
+                else:
+                    concat += (parseInput[i] + " ")
+            print(sparse.checkProof(parseInput[1], parseInput[2], concat))
+        else:
+            print(" ")
 
 # tests
 # if __name__ == '__main__':
@@ -340,8 +373,8 @@ def myHash(value):
 #     print(int(res, 2))
 #     print(int("11110", 2))
 
-if __name__ == '__main__':
-    sparse = SparseMerkleTree()
+##if __name__ == '__main__':
+#  sparse = SparseMerkleTree()
 #     # leaf = SparseLeaf(2, myHash("2"))
 #     # sparse.indexArray.append(leaf)
 #     leaf = SparseLeaf(3, myHash("3"))
@@ -352,11 +385,5 @@ if __name__ == '__main__':
 #     sparse.createNextLevel()
 #     sparse.printCurrentLevel()
 #     # print(myHash(myHash("2") + myHash("3")))
-    print(sparse.getRootVal())
-    print(sparse.createProof("5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"))
-
-
-
-
-
-
+#    print(sparse.getRootVal())
+#   print(sparse.createProof("5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"))
