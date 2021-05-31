@@ -16,11 +16,12 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 # creating two classes one for the tree and one for the leaves
 # the leave holds it's hash value and if the index of it even or odd
-# the tree holds the number of leaves he has and two arrays - one of the original leaves and the other is copy for meesing with functions
+# the tree holds the number of leaves he has and two arrays -
+# one of the original leaves and the other is copy for messing with functions
 # there is assumption that before every func call changingArray is empty
 
 
-class Merkle_Leafe:
+class Merkle_Leaf:
     def __init__(self, data, numOfLeave):
         self.hash = myHash(data)
         if numOfLeave % 2 == 0:
@@ -61,7 +62,7 @@ class MerkleTree:
         temp = []
         j = 0
         for i, k in zip(self.changingArray[0::2], self.changingArray[1::2]):
-            tmpLeave = Merkle_Leafe(i.hash + k.hash, j)
+            tmpLeave = Merkle_Leaf(i.hash + k.hash, j)
             temp.append(tmpLeave)
             j += 1
         # in case there was odd num of leaves insert the one we kept to the next level
@@ -164,14 +165,15 @@ class MerkleTree:
         # print("public: ", publicKey)
         # print("signature: ", signature)
         # print("text: ", text)
-        publicKey = load_pem_public_key(publicKey.encode(), backend = default_backend())
+        publicKey = load_pem_public_key(publicKey.encode(), backend=default_backend())
         try:
             publicKey.verify(base64.decodebytes(signature.encode()), text.encode(),
-                             padding.PSS(mgf = padding.MGF1(hashes.SHA256()), salt_length = padding.PSS.MAX_LENGTH),
+                             padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
                              hashes.SHA256())
             return True
         except:
             return False
+
 
 class SparseLeaf:
     def __init__(self, data, enteredHash):
@@ -250,8 +252,9 @@ class SparseMerkleTree:
         tempIndex = int(digest, 16)
         # create proof 255 times without the root
         for i in range(256):
-            print("level: ", i, "changing: ", self.changingArray[0].hash)
-            print("index: ", tempIndex, "self index: ", self.changingArray[0].index)
+            # print("level: ", i, "changing: ", self.changingArray[0].hash)
+            # print("index: ", tempIndex, "self index: ", self.changingArray[0].index)
+            # print("defval: ", self.defValue)
             broExist = False
             iExist = False
             if tempIndex % 2 == 0:
@@ -272,8 +275,17 @@ class SparseMerkleTree:
                         iExist = True
                 if (not broExist) and iExist:
                     proof = proof + " " + self.defValue
-            self.createNextLevel()
-            tempIndex = math.floor(tempIndex / 2)
+            # Yoav to review
+            if i != 255:
+                self.createNextLevel()
+                tempIndex = math.floor(tempIndex / 2)
+        # in case of empty half sparse tree - add default value and the other hash
+        # Yoav to review
+        if proof == "":
+            if tempIndex % 2 == 0:
+                proof = self.defValue + " " + self.changingArray[0].hash
+            else:
+                proof = self.changingArray[0].hash + " " + self.defValue
         proof = self.getRootVal() + " " + proof
         return proof
 
@@ -303,7 +315,7 @@ if __name__ == '__main__':
 
         # choices
         if parseInput[0] == "1":
-            leaf = Merkle_Leafe(parseInput[1], merkle.numOfLeaves)
+            leaf = Merkle_Leaf(parseInput[1], merkle.numOfLeaves)
             merkle.insert_leaf(leaf)
 
         elif parseInput[0] == "2":
