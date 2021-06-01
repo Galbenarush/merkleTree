@@ -224,8 +224,15 @@ class SparseMerkleTree:
     # input 8
     def markLeaf(self, digest):
         index = int(digest, 16)
-        leaf = SparseLeaf(index, "1")
-        self.indexArray.append(leaf)
+        isExist = False
+        for x in self.indexArray:
+            if x.index == index:
+                isExist = True
+        if not isExist:
+            leaf = SparseLeaf(index, "1")
+            self.indexArray.append(leaf)
+
+        self.printOriginalTree()
 
     # input 9
     def getRootVal(self):
@@ -275,12 +282,9 @@ class SparseMerkleTree:
                         iExist = True
                 if (not broExist) and iExist:
                     proof = proof + " " + self.defValue
-            # Yoav to review
             if i != 255:
                 self.createNextLevel()
                 tempIndex = math.floor(tempIndex / 2)
-        # in case of empty half sparse tree - add default value and the other hash
-        # Yoav to review
         if proof == "":
             if tempIndex % 2 == 0:
                 proof = self.defValue + " " + self.changingArray[0].hash
