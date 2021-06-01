@@ -291,8 +291,19 @@ class SparseMerkleTree:
 
     # input 11
     def checkProof(self, digest, num, proof):
-        testProof = self.createProof(digest)
-        return testProof == proof
+        tempProof = ""
+        if num == "0":
+            tempProof = self.createProof(digest)
+        elif num == "1":
+            self.markLeaf(digest)
+            tempProof = self.createProof(digest)
+            #to bring the tree back to original
+            self.indexArray.pop()
+
+        if (proof[:-1] == tempProof):
+            return True
+        else:
+            return False
 
 
 # hash sha256 function
