@@ -304,19 +304,54 @@ class SparseMerkleTree:
     def checkProof(self, digest, num, proof):
         """create proof by given digest and check if we need to mark the leaf. Then we check if the proof
         is match to the given proof"""
-        tempProof = ""
-        if num == "0":
-            tempProof = self.createProof(digest)
-        elif num == "1":
-            self.markLeaf(digest)
-            tempProof = self.createProof(digest)
-            # to bring the tree back to original
-            self.indexArray.pop()
+        # spliting input to array, poping the empty last element, and creating a tree for the proof validation
+        parseInput = proof.split(" ")
+        parseInput.pop()
+        proofLength = len(parseInput)
+        tmp = SparseMerkleTree()
 
-        if (proof[:-1] == tempProof):
-            return True
-        else:
+        # in case sign is 1 mark the give leaf
+        if num == "1":
+            tmp.markLeaf(digest)
+        tmp.changingArray = tmp.indexArray.copy()
+
+        # if sign was 0, then creating hash value of zeroes, in case was 1, creating hashes of the given digest
+        zero = "0"
+        for i in range(256 - (proofLength - 2)):
+            if num == "1":
+                tmp.createNextLevel()
+            elif num == "0":
+                zero = myHash(zero + zero)
+
+        # in case sign is zero, check if given first node in proof is equal to the calculated zeroes hash
+        # in case sign is one check if given second node in proof is equal to the calculated digest hash
+        if num == "0":
+            if (zero != parseInput[1]):
+                return False
+        if num == "1":
+            if tmp.changingArray[0].hash != parseInput[2]:
+                return False
+
+        # Poping out the root, the given first node which is the zeroes hash and calculating the index of
+        # the digest after the hashes
+        root = parseInput.pop(0)
+        tmpHash = parseInput.pop(0)
+        tempIndex = int(digest, 16)
+        for p in range(257 - (proofLength - 2)):
+            tempIndex = math.floor(tempIndex / 2)
+
+        # according to given diget hash index concating the hashes and compute them
+        for x in parseInput:
+            if tempIndex % 2 == 1:
+                tmpHash = myHash(x + tmpHash)
+            else:
+                tmpHash = myHash(tmpHash + x)
+
+        # after hashing all of the proof, check if we got the root
+        if tmpHash != root:
             return False
+
+        return True
 
 
 # hash sha256 function
