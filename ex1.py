@@ -115,7 +115,7 @@ class MerkleTree:
 
     # input 4
     def checkProof(self, leafData, proof):
-        '''checking proof of given element. Hashing the given leaf and continue hashing it with the proof until
+        '''checking proof of given element. Hashing the given leaf and contionue hashing it with the proof until
         we got to the root'''
         tempHash = myHash(leafData)
 
@@ -124,7 +124,10 @@ class MerkleTree:
         for h in proofArr:
             tempStr = h[1:]
             if tempStr != "":
-                tempHash = myHash(tempHash + tempStr)
+                if h[0] == "0":
+                    tempHash = myHash(tempStr + tempHash)
+                elif h[0] == "1":
+                    tempHash = myHash(tempHash + tempStr)
         if root == tempHash:
             return True
         else:
